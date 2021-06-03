@@ -16,7 +16,7 @@ hki_data <- data %>%
   sf::st_drop_geometry() %>% 
   filter(kunta == '091') %>% 
   rename(tunnus = kosa) %>% 
-  dplyr::select(-kunta, -korttunnus, -ktun, -rekpvm)
+  dplyr::select(-gml_id, -kunta, -korttunnus, -ktun, -rekpvm)
 
 write_rds(hki_data, "hki_data.RDS")
 
