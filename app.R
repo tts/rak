@@ -6,7 +6,7 @@ library(scales)
 hki <- readRDS("hki_data.RDS") 
 k_osat <- readRDS("data_kosat_p.RDS")
 
-stats <- unique(names(hki)[3:ncol(hki)])
+stats <- unique(names(hki)[2:ncol(hki)])
 
 ui <- function(request) {
   
@@ -53,12 +53,12 @@ server <- function(input, output, session) {
   
   output$plot <- renderPlot({
     
-    g <- function(df, colName) {
+    g <- function(df, col) {
       df %>% 
-        dplyr::select(tunnus, colName) %>%
+        dplyr::select(tunnus, all_of(col)) %>%
         group_by(tunnus) %>%
-        mutate(this_sum = sum(!! sym(colName))) %>%
-        dplyr::select(-!!colName) %>%
+        mutate(this_sum = sum(!! sym(col))) %>%
+        dplyr::select(-!!col) %>%
         distinct_at(vars(tunnus), .keep_all = TRUE)
     }
     
