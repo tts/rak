@@ -1,5 +1,6 @@
 library(tidyverse)
 library(sf)
+library(gdalUtilities)
 
 #-------------
 # RAMAVA data
@@ -10,18 +11,24 @@ wfs_request <- "request=GetFeature&service=WFS&version=2.0.0&typeName=SeutuRAMAV
 ramava_wfs <- paste0(baseurl,wfs_request)
 data <- st_read(ramava_wfs)
 
-write_rds(data, "ramava_data.RDS")
-data <- readRDS("ramava_data.RDS")
-
 # Helsinki
 hki_data <- data %>% 
   filter(kunta == '091') %>% 
-  st_set_crs(., 4326) %>% 
-  st_transform(crs = 4326) %>% 
-  mutate(kosa = gsub("^0", "", kosa)) %>% 
-  st_drop_geometry()
+  rename(tunnus = kosa)
 
 rm(data)
+gc()
+
+# laskvar_ap grouped by district
+hki_data_g <- hki_data %>% 
+  st_drop_geometry() %>% 
+  dplyr::select(tunnus, laskvar_ap) %>% 
+  group_by(tunnus) %>%
+  mutate(laskvar_ap_sum = sum(laskvar_ap)) %>%
+  dplyr::select(-laskvar_ap) %>% 
+  distinct_at(vars(tunnus), .keep_all = TRUE) 
+
+rm(hki_data)
 gc()
 
 #--------------------
@@ -33,41 +40,36 @@ kosat_wfs <- paste0(baseurl, wfs_request)
 data_kosat <- st_read(kosat_wfs)
 
 data_kosat <- data_kosat %>% 
-  st_set_crs(., 4326) %>% 
-  st_transform(crs = 4326) 
+  mutate(tunnus = gsub("^0", "", tunnus),
+         nimi_fi = str_to_title(nimi_fi)) %>% 
+  filter(tunnus != "Alumeri",
+         nimi_fi != "Ulkosaaret") 
 
-write_rds(data_kosat, "data_kosat.RDS")
+st_crs(data_kosat) <- 3067
 
-#---------------
-# Join datasets
-#---------------
-joined <- inner_join(hki_data, data_kosat, by = c("kosa"="tunnus"))
+# https://gis.stackexchange.com/a/389854
+ensure_multipolygons <- function(X) {
+  tmp1 <- tempfile(fileext = ".gpkg")
+  tmp2 <- tempfile(fileext = ".gpkg")
+  st_write(X, tmp1)
+  ogr2ogr(tmp1, tmp2, f = "GPKG", nlt = "MULTIPOLYGON")
+  Y <- st_read(tmp2)
+  st_sf(st_drop_geometry(X), geom = st_geometry(Y))
+}
 
-joined <- joined %>% 
-  select(kosa, nimi_fi, laskvar_ap, geom) %>% 
-  group_by(kosa) %>%
-  mutate(laskvar_ap_sum = sum(laskvar_ap)) %>%
-  select(-laskvar_ap) %>% 
-  distinct_at(vars(kosa), .keep_all = TRUE) %>% 
-  ungroup()
+data_kosat_p <- ensure_multipolygons(data_kosat)
 
-rm(hki_data, data_kosat)
+rm(data_kosat)
 gc()
 
-write_rds(joined, "joined.RDS")
+merged <- merge(data_kosat_p, hki_data_g)
 
-#------
-# Plot
-#------
-
-# TODO geom_sf_text fails
-ggplot(joined) + 
-  geom_sf(aes(geometry = geom, fill = laskvar_ap_sum)) +
-  scale_fill_viridis_c(direction = -1) +
-  geom_sf_text(aes(label = nimi_fi, geometry = geom)) +
-  theme(axis.text = element_blank(),
-        axis.title = element_blank(),
-        axis.ticks = element_blank())
-  
+ggplot(merged) +
+  geom_sf(aes(fill = laskvar_ap_sum)) +
+  geom_sf_text(data = st_point_on_surface(merged), aes(label = nimi_fi), check_overlap = TRUE,
+               colour = "orangered", size = 2.5) +
+  scale_fill_viridis_c() +
+  guides(fill = guide_legend(title = "Pientalovara (m2)")) +
+  theme_void()
 
 
