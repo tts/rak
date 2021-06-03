@@ -13,23 +13,12 @@ data <- st_read(ramava_wfs)
 
 # Helsinki
 hki_data <- data %>% 
+  sf::st_drop_geometry() %>% 
   filter(kunta == '091') %>% 
-  rename(tunnus = kosa)
+  rename(tunnus = kosa) %>% 
+  dplyr::select(-kunta, -korttunnus, -ktun, -rekpvm)
 
-rm(data)
-gc()
-
-# laskvar_ap grouped by district
-hki_data_g <- hki_data %>% 
-  st_drop_geometry() %>% 
-  dplyr::select(tunnus, laskvar_ap) %>% 
-  group_by(tunnus) %>%
-  mutate(laskvar_ap_sum = sum(laskvar_ap)) %>%
-  dplyr::select(-laskvar_ap) %>% 
-  distinct_at(vars(tunnus), .keep_all = TRUE) 
-
-rm(hki_data)
-gc()
+write_rds(hki_data, "hki_data.RDS")
 
 #--------------------
 # City district data
@@ -59,17 +48,6 @@ ensure_multipolygons <- function(X) {
 
 data_kosat_p <- ensure_multipolygons(data_kosat)
 
-rm(data_kosat)
-gc()
-
-merged <- merge(data_kosat_p, hki_data_g)
-
-ggplot(merged) +
-  geom_sf(aes(fill = laskvar_ap_sum)) +
-  geom_sf_text(data = st_point_on_surface(merged), aes(label = nimi_fi), check_overlap = TRUE,
-               colour = "orangered", size = 2.5) +
-  scale_fill_viridis_c() +
-  guides(fill = guide_legend(title = "Pientalovara (m2)")) +
-  theme_void()
+write_rds(data_kosat_p, "data_kosat_p.RDS")
 
 
