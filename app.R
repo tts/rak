@@ -12,9 +12,9 @@ stats <- unique(names(hki)[2:ncol(hki)])
 
 ui <- fluidPage(
   
-  title = "Helsingin tonttivaranto kaupunginosittain",
+  title = "Helsingin tonttivaranto summattuna kaupunginosittain",
   
-  titlePanel("Helsingin tonttivaranto kaupunginosittain"),
+  titlePanel("Helsingin tonttivaranto summattuna kaupunginosittain"),
 
   sidebarPanel(
     selectInput(inputId = "stats",
@@ -66,7 +66,7 @@ server <- function(input, output, session) {
     ggplot(toPlot()) +
       geom_sf(aes(fill = this_sum)) +
       geom_sf_label(data = sf::st_point_on_surface(toPlot()), aes(label = nimi_fi), 
-                    size = 2.5) +
+                    size = 3.5, position=position_jitter(width=1,height=1)) +
       scale_fill_viridis_c(label = comma, option = "inferno") +   
       guides(fill = guide_legend(title = paste0(input$stats, " (m2)"))) +
       theme_void() 
