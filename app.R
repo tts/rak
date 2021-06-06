@@ -25,7 +25,8 @@ ui <- fluidPage(
     htmlOutput(outputId = "text"),
     tags$div(class="form-group shiny-input-container", 
              HTML("<p>Data ja selitykset: <a href='https://hri.fi/data/fi/dataset/paakaupunkiseudun-tonttivaranto-kortteleittain-seuturamava'>HRI</a>. Haettu 2021-06-06</p>
-                  <p>Applikaatio: Tuija Sonkkila @ttso")),
+                  <p>Applikaatio: Tuija Sonkkila @ttso</p>
+                  <p><a href='https://github.com/tts/rak'>Koodi</a></p>")),
     width = 3),
   
   mainPanel(
