@@ -2,6 +2,8 @@ library(shiny)
 library(sf)
 library(tidyverse)
 library(scales)
+library(DT)
+
 
 hki <- readRDS("hki_data.RDS") 
 k_osat <- readRDS("data_kosat_p.RDS")
@@ -10,21 +12,26 @@ stats <- unique(names(hki)[2:ncol(hki)])
 
 ui <- fluidPage(
   
-    sidebarPanel(
-      selectInput(inputId = "stats",
-                    label = "Varanto",
-                    choices = stats,
-                    multiple = FALSE,
-                    selected = "karayht"),
-        htmlOutput(outputId = "text"),
-      width = 3),
-    
-    
-    mainPanel(
-      tabsetPanel(
-        tabPanel("Map", 
-                 plotOutput("plot", height = 800)
-                 )
+  title = "Helsingin tonttivaranto kaupunginosittain",
+  
+  titlePanel("Helsingin tonttivaranto kaupunginosittain"),
+
+  sidebarPanel(
+    selectInput(inputId = "stats",
+                  label = "Varanto",
+                  choices = stats,
+                  multiple = FALSE,
+                  selected = "kala"),
+    htmlOutput(outputId = "text"),
+    tags$div(class="form-group shiny-input-container", 
+             HTML("<p>Data ja selitykset: <a href='https://hri.fi/data/fi/dataset/paakaupunkiseudun-tonttivaranto-kortteleittain-seuturamava'>HRI</a>. Haettu 2021-06-06</p>
+                  <p>Applikaatio: Tuija Sonkkila @ttso")),
+    width = 3),
+  
+  mainPanel(
+    tabsetPanel(
+      tabPanel("Kartta", plotOutput("plot", height = 800)),
+      tabPanel("Data", DT::dataTableOutput("table", height = 800))
       ),
       width = 9
     )
@@ -33,14 +40,12 @@ ui <- fluidPage(
 server <- function(input, output, session) {
   
   hkiData <- reactive({
-    req(input$stats)
     hki %>% 
       dplyr::select(tunnus, input$stats)
   })
   
+  toPlot <- reactive({
   
-  output$plot <- renderPlot({
-    
     g <- function(df, col) {
       df %>% 
         dplyr::select(tunnus, all_of(col)) %>%
@@ -51,14 +56,17 @@ server <- function(input, output, session) {
     }
     
     res <- g(hkiData(), input$stats)
+    merged <- merge(k_osat, res)
+
+  })
+  
+  output$plot <- renderPlot({
     
-    merged <- sf::st_as_sf(merge(k_osat, res))
-    
-    ggplot(merged) +
+    ggplot(toPlot()) +
       geom_sf(aes(fill = this_sum)) +
-      geom_sf_label(data = sf::st_point_on_surface(merged), aes(label = nimi_fi), 
+      geom_sf_label(data = sf::st_point_on_surface(toPlot()), aes(label = nimi_fi), 
                     size = 2.5) +
-      scale_fill_viridis_c(label = comma, option = "inferno") +      
+      scale_fill_viridis_c(label = comma, option = "inferno") +   
       guides(fill = guide_legend(title = paste0(input$stats, " (m2)"))) +
       theme_void() 
     
@@ -67,21 +75,37 @@ server <- function(input, output, session) {
   output$text <- renderUI({
     
     HTML("<ul>
-<li>kala = <br>rakennusoikeus, kuntarekisteriin merkitty kerrosala.<br>Ei sisällä kaavamääräyksiin mahdollisesti <br>sisältyvää lisärakennusoikeutta.</li>
-<li>karayht = <br>käyttöönotettu kerrosala yhteensä <br>(sisältää rakenteilla olevan kerrosalan)</li>
-<li>karaas = <br>käyttöönotettu asuinkerrosala <br>(sisältää rakenteilla olevan kerrosalan)</li>
-<li>karamu = <br>käyttöönotettu muu kuin asuinkerrosala <br>(sisältää rakenteilla olevan kerrosalan)</li>
-<li>laskvar_ak = <br>laskennallinen kerrostalovaranto</li>
-<li>laskvar_ap = <br>laskennallinen pientalovaranto</li>
-<li>laskvar_k = <br>laskennallinen liike- ja toimistotilavaranto</li>
-<li>laskvar_t = <br>laskennallinen teollisuus- ja varastotilavaranto</li>
-<li>laskvar_y = <br>laskennallinen julkisen rakentamisen varanto</li>
-<li>laskvar_nn = <br>laskennallinen muu kuin yllä mainittujen käyttötarkoitusten <br>varanto</li>
-<li>laskvar_yh = <br>laskennallinen varanto yhteensä</li>
-<li>rakeraas = <br>rakenteilla oleva asuinkerrosala</li>
-<li>rakeramu = <br>rakenteilla oleva muu kuin asuinkerrosala</li>
-<li>rakerayht = <br>rakenteilla oleva kerrosala yhteensä </li>
+<li><b>kala</b> = <br>rakennusoikeus, kuntarekisteriin merkitty kerrosala.<br>Ei sisällä kaavamääräyksiin mahdollisesti <br>sisältyvää lisärakennusoikeutta.</li>
+<li><b>karayht</b> = <br>käyttöönotettu kerrosala yhteensä <br>(sisältää rakenteilla olevan kerrosalan)</li>
+<li><b>karaas</b> = <br>käyttöönotettu asuinkerrosala <br>(sisältää rakenteilla olevan kerrosalan)</li>
+<li><b>karamu</b> = <br>käyttöönotettu muu kuin asuinkerrosala <br>(sisältää rakenteilla olevan kerrosalan)</li>
+<li><b>laskvar_ak</b> = <br>laskennallinen kerrostalovaranto</li>
+<li><b>laskvar_ap</b> = <br>laskennallinen pientalovaranto</li>
+<li><b>laskvar_k</b> = <br>laskennallinen liike- ja toimistotilavaranto</li>
+<li><b>laskvar_t</b> = <br>laskennallinen teollisuus- ja varastotilavaranto</li>
+<li><b>laskvar_y</b> = <br>laskennallinen julkisen rakentamisen varanto</li>
+<li><b>laskvar_nn</b> = <br>laskennallinen muu kuin yllä mainittujen käyttötarkoitusten <br>varanto</li>
+<li><b>laskvar_yh</b> = <br>laskennallinen varanto yhteensä</li>
+<li><b>rakeraas</b> = <br>rakenteilla oleva asuinkerrosala</li>
+<li><b>rakeramu</b> = <br>rakenteilla oleva muu kuin asuinkerrosala</li>
+<li><b>rakerayht</b> = <br>rakenteilla oleva kerrosala yhteensä </li>
 </ul>")
+  })
+  
+  
+  output$table <- DT::renderDataTable({
+    
+    totable <- toPlot() %>% 
+      sf::st_drop_geometry() %>% 
+      dplyr::rename(varanto_m2 = this_sum) %>% 
+      dplyr::arrange(desc(varanto_m2)) %>% 
+      dplyr::select(-gml_id, -id, -aluejako, -kunta, -starts_with("tunnus"), -starts_with("yht"), -paivitetty_tietopalveluun)
+    
+    dat <- DT::datatable(totable, 
+                         rownames = FALSE,
+                         filter = "top",
+                         options(list(pageLength = 100)))
+
   })
   
   
