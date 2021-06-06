@@ -1,5 +1,5 @@
 library(shiny)
-library(shinydashboard)
+library(sf)
 library(tidyverse)
 library(scales)
 
@@ -8,44 +8,32 @@ k_osat <- readRDS("data_kosat_p.RDS")
 
 stats <- unique(names(hki)[2:ncol(hki)])
 
-ui <- function(request) {
+ui <- fluidPage(
   
-  sidebar <- dashboardSidebar(
-    width = 400,
-    sidebarMenu(
+    sidebarPanel(
       selectInput(inputId = "stats",
-                  label = "Varanto",
-                  choices = stats,
-                  multiple = FALSE,
-                  selected = "kala"),
-      htmlOutput(outputId = "text")),
-    tags$div(class="form-group shiny-input-container", 
-             HTML("<p>Data and info: <a href='https://hri.fi/data/fi/dataset/paakaupunkiseudun-tonttivaranto-kortteleittain-seuturamava'>HRI</a>. Fetched 2021-06-03</p>
-                  <p><a href='http://tuijasonkkila.fi/blog/'>About [N/A]</a></p>")
-    ))
-  
-  
-  body <- dashboardBody(
-    fluidRow(
-      box(
-        width = 12, plotOutput("plot", height = "600px")
-      )
-      )
+                    label = "Varanto",
+                    choices = stats,
+                    multiple = FALSE,
+                    selected = "karayht"),
+        htmlOutput(outputId = "text"),
+      width = 3),
+    
+    
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Map", 
+                 plotOutput("plot", height = 800)
+                 )
+      ),
+      width = 9
     )
-  
-  
-  dashboardPage(
-    dashboardHeader(title = "Helsingin tonttivaranto"),
-    sidebar,
-    body,
-    skin = "black"
-  )
-  
-}
+)
 
 server <- function(input, output, session) {
   
   hkiData <- reactive({
+    req(input$stats)
     hki %>% 
       dplyr::select(tunnus, input$stats)
   })
@@ -56,24 +44,24 @@ server <- function(input, output, session) {
     g <- function(df, col) {
       df %>% 
         dplyr::select(tunnus, all_of(col)) %>%
-        group_by(tunnus) %>%
-        mutate(this_sum = sum(!! sym(col))) %>%
+        dplyr::group_by(tunnus) %>%
+        dplyr::mutate(this_sum = sum(!! sym(col))) %>%
         dplyr::select(-!!col) %>%
-        distinct_at(vars(tunnus), .keep_all = TRUE)
+        dplyr::distinct_at(vars(tunnus), .keep_all = TRUE)
     }
     
     res <- g(hkiData(), input$stats)
-
-    merged <- merge(k_osat, res)
+    
+    merged <- sf::st_as_sf(merge(k_osat, res))
     
     ggplot(merged) +
       geom_sf(aes(fill = this_sum)) +
-      geom_sf_label(data = sf::st_point_on_surface(merged), aes(label = nimi_fi), check_overlap = TRUE,
-                   size = 2.5) +
+      geom_sf_label(data = sf::st_point_on_surface(merged), aes(label = nimi_fi), 
+                    size = 2.5) +
       scale_fill_viridis_c(label = comma, option = "inferno") +      
       guides(fill = guide_legend(title = paste0(input$stats, " (m2)"))) +
       theme_void() 
-
+    
   })
   
   output$text <- renderUI({
