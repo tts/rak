@@ -63,10 +63,11 @@ server <- function(input, output, session) {
   
   output$plot <- renderPlot({
     
-    ggplot(toPlot()) +
-      geom_sf(aes(fill = this_sum)) +
-      geom_sf_label(data = sf::st_point_on_surface(toPlot()), aes(label = nimi_fi), 
-                    size = 3.5, position=position_jitter(width=1,height=1)) +
+    ggplot() +
+      geom_sf(data = k_osat, fill = "white") +
+      geom_sf(data = toPlot(), aes(fill = this_sum)) +
+      geom_sf_label(data = sf::st_point_on_surface(k_osat), aes(label = nimi_fi), 
+                    size = 3.5, position = position_jitter(width = 1, height = 1)) +
       scale_fill_viridis_c(label = comma, option = "inferno") +   
       guides(fill = guide_legend(title = paste0(input$stats, " (m2)"))) +
       theme_void() 
