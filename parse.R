@@ -32,7 +32,7 @@ data_kosat <- data_kosat %>%
   mutate(tunnus = gsub("^0", "", tunnus),
          nimi_fi = str_to_title(nimi_fi),
          nimi_se = str_to_title(nimi_se)) %>% 
-  filter(tunnus != "Aluemeri",
+  filter(nimi_fi != "Aluemeri",
          nimi_fi != "Ulkosaaret") 
 
 st_crs(data_kosat) <- 3067
